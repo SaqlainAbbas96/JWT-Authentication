@@ -7,5 +7,7 @@ namespace OAuth.Repositories
 		Task<string> RegisterUser(User user);
 		Task<User?> Checkuser(string email, string password);
 		Task<string> GetRole(int userId);
+
+		Task<string> Logout();
 	}
 }

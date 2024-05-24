@@ -74,5 +74,11 @@ namespace OAuth.Services
 				return hash.SequenceEqual(passwordHash);
 			}
 		}
-	}
+
+        public async Task<string> LogoutUser()
+        {
+			var res = await _userRepository.Logout();
+			return res;
+        }
+    }
 }

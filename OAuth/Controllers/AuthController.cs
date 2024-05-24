@@ -43,5 +43,12 @@ namespace OAuth.Controllers
 
 			return Unauthorized(value);
 		}
+
+		[HttpPost("Logout")]
+		public async Task<ActionResult> Logout()
+        {
+            var res = await _userService.LogoutUser();
+            return Ok(res);
+        }
 	}
 }
