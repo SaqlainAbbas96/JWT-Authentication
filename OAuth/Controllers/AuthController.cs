@@ -46,9 +46,9 @@ namespace OAuth.Controllers
 
 		[HttpPost("Logout")]
 		public async Task<ActionResult> Logout()
-        {
-            var res = await _userService.LogoutUser();
-            return Ok(res);
-        }
+        	{
+            		var res = await _userService.LogoutUser();
+            		return Ok(res);
+        	}
 	}
 }

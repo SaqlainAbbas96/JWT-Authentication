@@ -6,14 +6,14 @@ namespace OAuth.Repositories
 	public class UserRepository : IUserRepository
 	{
 		private readonly DBContext _db;
-        private readonly IHttpContextAccessor _httpContextAccessor;
-        public UserRepository(DBContext db, IHttpContextAccessor httpContextAccessor)
-        {
-            _db = db;
-            _httpContextAccessor = httpContextAccessor;
-        }
+        	private readonly IHttpContextAccessor _httpContextAccessor;
+        	public UserRepository(DBContext db, IHttpContextAccessor httpContextAccessor)
+        	{
+	            _db = db;
+        	    _httpContextAccessor = httpContextAccessor;
+	        }
 
-        public async Task<string> RegisterUser(User user)
+        	public async Task<string> RegisterUser(User user)
 		{
 			_db.User.Add(user);
 			await _db.SaveChangesAsync();
@@ -35,15 +35,15 @@ namespace OAuth.Repositories
 			return user != null ? user : null;
 		}
 
-        public async Task<string> Logout()
-        {
-            // Clear authentication tokens
-            //_httpContextAccessor.HttpContext.Response.Cookies.Delete("authenticationToken");
+        	public async Task<string> Logout()
+        	{
+            		// Clear authentication tokens
+            		//_httpContextAccessor.HttpContext.Response.Cookies.Delete("authenticationToken");
 
-            // Clear session data
-            _httpContextAccessor.HttpContext.Session.Clear();
+            		// Clear session data
+            		_httpContextAccessor.HttpContext.Session.Clear();
 
 			return "Logout Successfully";
-        }
+	        }
     }
 }

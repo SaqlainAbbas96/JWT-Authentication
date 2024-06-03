@@ -13,12 +13,12 @@ namespace OAuth.Services
 		private readonly IUserRepository _userRepository;
 		private readonly IJwtAuthenticationService _jwtAuthenticationService;
 		public UserService(IUserRepository userRepository, IJwtAuthenticationService jwtAuthenticationService)
-        {
+        	{
 			_jwtAuthenticationService = jwtAuthenticationService;
 			_userRepository = userRepository;
-        }
+        	}
 
-        public async Task<string> RegisterUser(UserDto userDto)
+	        public async Task<string> RegisterUser(UserDto userDto)
 		{
 			if (string.IsNullOrEmpty(userDto.email))
 				return "Please provide your email";
@@ -75,10 +75,10 @@ namespace OAuth.Services
 			}
 		}
 
-        public async Task<string> LogoutUser()
-        {
+	        public async Task<string> LogoutUser()
+        	{
 			var res = await _userRepository.Logout();
 			return res;
-        }
+        	}
     }
 }
