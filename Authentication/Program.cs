@@ -1,18 +1,24 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Authentication.Models;
+using Authentication.Repositories;
+using Authentication.Services;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
-using OAuth.Models;
-using OAuth.Repositories;
-using OAuth.Services;
-using Swashbuckle.AspNetCore.Filters;
-using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-JwtAuthenticationConfig.Configure(builder.Services, builder.Configuration["Jwt:Key"]);
+// Read directly from configuration
+var jwtKey = builder.Configuration["Jwt:Key"]
+    ?? throw new Exception("JWT Key is missing in appsettings.json");
 
+var jwtIssuer = builder.Configuration["Jwt:Issuer"]
+    ?? throw new Exception("JWT Issuer is missing");
+
+var jwtAudience = builder.Configuration["Jwt:Audience"]
+    ?? throw new Exception("JWT Audience is missing");
+
+// Pass to your config method
+JwtAuthenticationConfig.Configure(builder.Services, jwtKey, jwtIssuer!, jwtAudience!);
+
+// Add services to the container.
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();

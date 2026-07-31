@@ -1,8 +1,6 @@
-﻿using OAuth.Models;
-using OAuth.Models.Dtos;
-using System.Security.Cryptography;
+﻿using Authentication.Models.Dtos;
 
-namespace OAuth.Services
+namespace Authentication.Services
 {
 	public interface IUserService
 	{
@@ -12,6 +10,5 @@ namespace OAuth.Services
 		Task<string> GetUserRole();
 		bool VerifyHashPassword(string password, byte[] passwordHash, byte[] passwordSalt);
 		Task<string> LogoutUser();
-
     }
 }

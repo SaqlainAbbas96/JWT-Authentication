@@ -1,4 +1,4 @@
-﻿namespace OAuth.Models
+﻿namespace Authentication.Models
 {
 	public static class Global
 	{

@@ -9,7 +9,7 @@
     }
   },
   "profiles": {
-    "OAuth": {
+    "Authentication": {
       "commandName": "Project",
       "dotnetRunMessages": true,
       "launchBrowser": true,

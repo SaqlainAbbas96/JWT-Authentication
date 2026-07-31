@@ -1,9 +1,9 @@
-﻿namespace OAuth.Services
+﻿namespace Authentication.Services
 {
 	public interface IJwtParams
 	{
 		string GetJwtKey();
-		string GetJwtAudiance();
+		string GetJwtAudience();
 		string GetJwtIssuer();
 	}
 }

@@ -1,4 +1,4 @@
-﻿namespace OAuth.Services
+﻿namespace Authentication.Services
 {
 	public interface IJwtAuthenticationService
 	{
