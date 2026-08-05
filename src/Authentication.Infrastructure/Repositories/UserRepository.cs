@@ -14,7 +14,7 @@ namespace Authentication.Infrastructure.Repositories
 
         public async Task<string> RegisterUser(User user)
         {
-            _db.Users.Add(user);
+            _db.users.Add(user);
             await _db.SaveChangesAsync();
 
             return "User registered successfully";
@@ -22,14 +22,14 @@ namespace Authentication.Infrastructure.Repositories
 
         public async Task<string?> GetRole(int userId)
         {
-            int roleId = _db.UserRoles.Where(u => u.UserId == userId).Select(u => u.RoleId).FirstOrDefault();
-            string role = _db.Roles.Where(r => r.Id == roleId).Select(r => r.RoleName).FirstOrDefault()!;
+            int roleId = _db.user_roles.Where(u => u.user_id == userId).Select(u => u.role_id).FirstOrDefault();
+            string role = _db.roles.Where(r => r.id == roleId).Select(r => r.role_name).FirstOrDefault()!;
             return role;
         }
 
-        public async Task<User?> Checkuser(string email, string password)
+        public async Task<User?> CheckUser(string email)
         {
-            var user = _db.Users.FirstOrDefault(u => u.Email == email);
+            var user = _db.users.FirstOrDefault(u => u.email == email);
 
             return user != null ? user : null;
         }

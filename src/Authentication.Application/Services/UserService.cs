@@ -1,7 +1,7 @@
-﻿using Authentication.Application.Dtos;
+﻿using Authentication.Application.Dtos.Requests;
+using Authentication.Application.Dtos.Responses;
 using Authentication.Application.Interfaces;
 using Authentication.Domain.Entities;
-using System.Security.Cryptography;
 
 namespace Authentication.Application.Services
 {
@@ -9,60 +9,71 @@ namespace Authentication.Application.Services
     {
         private readonly IUserRepository _userRepository;
         private readonly IJwtAuthenticationService _jwtAuthenticationService;
-        public UserService(IUserRepository userRepository, IJwtAuthenticationService jwtAuthenticationService)
+        private readonly IPasswordHasher _passwordHasher;
+        public UserService(IUserRepository userRepository, IJwtAuthenticationService jwtAuthenticationService, IPasswordHasher passwordHasher)
         {
             _jwtAuthenticationService = jwtAuthenticationService;
             _userRepository = userRepository;
+            _passwordHasher = passwordHasher;
         }
 
-        public async Task<string> RegisterUser(UserDto userDto)
+        public async Task<RegisterResponseDto> RegisterUser(RegisterRequestDto request)
         {
-            if (string.IsNullOrEmpty(userDto.Email))
-                return "Please provide your email";
+            if (string.IsNullOrWhiteSpace(request.Email))
+                throw new ArgumentException("Email is required.");
+
+            if (string.IsNullOrWhiteSpace(request.Password))
+                throw new ArgumentException("Password is required.");
 
             User user = new User();
 
-            PasswordHash(userDto.Password, out byte[] passwordHash, out byte[] passwordSalt);
+            var (hash, salt) = _passwordHasher.HashPassword(request.Password);
 
-            user.Email = userDto.Email;
-            user.PasswordHash = passwordHash;
-            user.PasswordSalt = passwordSalt;
+            user.email = request.Email;
+            user.password_hash = hash;
+            user.password_salt = salt;
 
             var res = await _userRepository.RegisterUser(user);
-            return res;
+            
+            return new RegisterResponseDto
+            {
+                UserId = user.id,
+                Email = user.email,
+                Message = "User registered successfully."
+            };
         }
 
-        public async Task<string> Authenticate(LoginDto loginDto)
+        public async Task<LoginResponseDto> Authenticate(LoginRequestDto request)
         {
-            var user = await _userRepository.Checkuser(loginDto.Email, loginDto.Password);
+            if (string.IsNullOrWhiteSpace(request.Email))
+                throw new ArgumentException("Email is required.");
 
-            if (user is not null)
+            if (string.IsNullOrWhiteSpace(request.Password))
+                throw new ArgumentException("Password is required.");
+
+            var user = await _userRepository.CheckUser(request.Email);
+
+            if (user is null)
+                throw new UnauthorizedAccessException("Invalid credentials.");
+
+            var valid = _passwordHasher.VerifyPassword(
+                request.Password,
+                user.password_hash,
+                user.password_salt);
+
+            if (!valid)
+                throw new UnauthorizedAccessException("Invalid credentials.");
+    
+            var userRole = await _userRepository.GetRole(user.id);
+
+            var token = _jwtAuthenticationService.GenerateToken(request.Email, userRole);
+
+            return new LoginResponseDto
             {
-                var userRole = await _userRepository.GetRole(user.Id);
-
-                bool isPasswordCorrect = VerifyHashPassword(loginDto.Password, user.PasswordHash, user.PasswordSalt);
-                return isPasswordCorrect ? _jwtAuthenticationService.GenerateToken(loginDto.Email, userRole) : "Invalid Password";
-            }
-            else
-                return "Invalid Credentials";
-        }
-
-        public void PasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
-        {
-            using (var h = new HMACSHA512())
-            {
-                passwordSalt = h.Key;
-                passwordHash = h.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
-            }
-        }
-
-        public bool VerifyHashPassword(string password, byte[] passwordHash, byte[] passwordSalt)
-        {
-            using (var h = new HMACSHA512(passwordSalt))
-            {
-                var hash = h.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
-                return hash.SequenceEqual(passwordHash);
-            }
+                AccessToken = token,
+                TokenType = "Bearer",
+                ExpiresAt = DateTime.UtcNow.AddDays(1)
+            };
         }
     }
 }

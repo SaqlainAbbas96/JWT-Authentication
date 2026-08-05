@@ -8,14 +8,14 @@ namespace Authentication.Infrastructure.Persistence
 		public DBContext(DbContextOptions<DBContext> options) : base(options) { }
 		public DBContext() { }
 
-		public virtual DbSet<User> Users { get; set; }
-		public virtual DbSet<Role> Roles { get; set; }
-		public virtual DbSet<UserRoles> UserRoles { get; set; }
+		public virtual DbSet<User> users { get; set; }
+		public virtual DbSet<Role> roles { get; set; }
+		public virtual DbSet<UserRoles> user_roles { get; set; }
 
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
 		{
 			modelBuilder.Entity<UserRoles>()
-				.HasKey(sc => new { sc.UserId, sc.RoleId });
+				.HasKey(sc => new { sc.user_id, sc.role_id });
 
 			base.OnModelCreating(modelBuilder);
 		}

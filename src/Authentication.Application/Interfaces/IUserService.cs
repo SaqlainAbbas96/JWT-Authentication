@@ -1,12 +1,11 @@
-﻿using Authentication.Application.Dtos;
+﻿using Authentication.Application.Dtos.Requests;
+using Authentication.Application.Dtos.Responses;
 
 namespace Authentication.Application.Interfaces
 {
 	public interface IUserService
 	{
-		Task<string> RegisterUser(UserDto userDto);
-		Task<string> Authenticate(LoginDto user);
-		void PasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt);
-		bool VerifyHashPassword(string password, byte[] passwordHash, byte[] passwordSalt);
+        Task<RegisterResponseDto> RegisterUser(RegisterRequestDto request);
+        Task<LoginResponseDto> Authenticate(LoginRequestDto request);
     }
 }

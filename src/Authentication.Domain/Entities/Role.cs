@@ -5,7 +5,7 @@ namespace Authentication.Domain.Entities
 	public class Role
 	{
 		[Key]
-		public int Id { get; set; }
-		public string RoleName { get; set; }
+		public int id { get; set; }
+		public string role_name { get; set; }
 	}
 }

@@ -5,9 +5,9 @@ namespace Authentication.Domain.Entities
 	public class User
 	{
         [Key]
-        public int Id { get; set; }
-        public string Email { get; set; }
-		public byte[] PasswordHash { get; set; }
-		public byte[] PasswordSalt { get; set; }
+        public int id { get; set; }
+        public string email { get; set; }
+		public byte[] password_hash { get; set; }
+		public byte[] password_salt { get; set; }
 	}
 }

@@ -1,11 +1,14 @@
-using Authentication.Application.Configuration;
+using Authentication.Api.Endpoints;
 using Authentication.Api.Extensions;
+using Authentication.Application.Configuration;
 using Authentication.Application.Interfaces;
 using Authentication.Application.Services;
 using Authentication.Infrastructure.Identity;
 using Authentication.Infrastructure.Persistence;
 using Authentication.Infrastructure.Repositories;
+using Authentication.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +30,8 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IJwtAuthenticationService, JwtAuthenticationService>();
 
+builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
+
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
 var app = builder.Build();
@@ -35,6 +40,8 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+
+    app.MapScalarApiReference();
 }
 
 app.UseHttpsRedirection();
@@ -42,6 +49,6 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers();
+app.MapAuthEndpoints();
 
 app.Run();
