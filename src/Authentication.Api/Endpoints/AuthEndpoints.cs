@@ -1,4 +1,5 @@
-﻿using Authentication.Application.Dtos.Requests;
+﻿using Authentication.Api.Filters;
+using Authentication.Application.Dtos.Requests;
 using Authentication.Application.Interfaces;
 
 namespace Authentication.Api.Endpoints
@@ -10,7 +11,6 @@ namespace Authentication.Api.Endpoints
             var group = app.MapGroup("/api/auth")
                 .WithTags("Authentication");
 
-            // Register
             group.MapPost("/register",
                 async (RegisterRequestDto userDto, IUserService userService) =>
                 {
@@ -20,9 +20,9 @@ namespace Authentication.Api.Endpoints
                 })
             .WithName("Register")
             .WithSummary("Register a new user")
-            .WithDescription("Creates a new user account.");
+            .WithDescription("Creates a new user account.")
+            .AddEndpointFilter<ValidationFilter<RegisterRequestDto>>();
 
-            // Login
             group.MapPost("/login",
                 async (LoginRequestDto loginDto, IUserService userService) =>
                 {
@@ -32,7 +32,8 @@ namespace Authentication.Api.Endpoints
                 })
             .WithName("Login")
             .WithSummary("Authenticate user")
-            .WithDescription("Authenticates a user and returns a JWT.");
+            .WithDescription("Authenticates a user and returns a JWT.")
+            .AddEndpointFilter<ValidationFilter<LoginRequestDto>>();
 
             return app;
         }

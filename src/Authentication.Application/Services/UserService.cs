@@ -1,5 +1,6 @@
 ﻿using Authentication.Application.Dtos.Requests;
 using Authentication.Application.Dtos.Responses;
+using Authentication.Application.Exceptions;
 using Authentication.Application.Interfaces;
 using Authentication.Domain.Entities;
 
@@ -19,11 +20,8 @@ namespace Authentication.Application.Services
 
         public async Task<RegisterResponseDto> RegisterUser(RegisterRequestDto request)
         {
-            if (string.IsNullOrWhiteSpace(request.Email))
-                throw new ArgumentException("Email is required.");
-
-            if (string.IsNullOrWhiteSpace(request.Password))
-                throw new ArgumentException("Password is required.");
+            if (await _userRepository.EmailExists(request.Email))
+                throw new ConflictException("Email is already registered.");
 
             User user = new User();
 
@@ -33,7 +31,7 @@ namespace Authentication.Application.Services
             user.password_hash = hash;
             user.password_salt = salt;
 
-            var res = await _userRepository.RegisterUser(user);
+            await _userRepository.RegisterUser(user);
             
             return new RegisterResponseDto
             {
@@ -45,16 +43,10 @@ namespace Authentication.Application.Services
 
         public async Task<LoginResponseDto> Authenticate(LoginRequestDto request)
         {
-            if (string.IsNullOrWhiteSpace(request.Email))
-                throw new ArgumentException("Email is required.");
-
-            if (string.IsNullOrWhiteSpace(request.Password))
-                throw new ArgumentException("Password is required.");
-
             var user = await _userRepository.CheckUser(request.Email);
 
             if (user is null)
-                throw new UnauthorizedAccessException("Invalid credentials.");
+                throw new UnauthorizedException("Invalid credentials.");
 
             var valid = _passwordHasher.VerifyPassword(
                 request.Password,
@@ -62,8 +54,8 @@ namespace Authentication.Application.Services
                 user.password_salt);
 
             if (!valid)
-                throw new UnauthorizedAccessException("Invalid credentials.");
-    
+                throw new UnauthorizedException("Invalid credentials.");
+
             var userRole = await _userRepository.GetRole(user.id);
 
             var token = _jwtAuthenticationService.GenerateToken(request.Email, userRole);

@@ -1,6 +1,9 @@
-﻿using Authentication.Application.Interfaces;
+﻿using Authentication.Application.Exceptions;
+using Authentication.Application.Interfaces;
 using Authentication.Domain.Entities;
 using Authentication.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Authentication.Infrastructure.Repositories
 {
@@ -12,26 +15,42 @@ namespace Authentication.Infrastructure.Repositories
             _db = db;
         }
 
-        public async Task<string> RegisterUser(User user)
+        public async Task RegisterUser(User user)
         {
             _db.users.Add(user);
-            await _db.SaveChangesAsync();
 
-            return "User registered successfully";
+            try
+            {
+                await _db.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (
+                ex.InnerException is PostgresException postgresException &&
+                postgresException.SqlState == PostgresErrorCodes.UniqueViolation)
+            {
+                throw new ConflictException("Email is already registered.");
+            }
         }
 
         public async Task<string?> GetRole(int userId)
         {
-            int roleId = _db.user_roles.Where(u => u.user_id == userId).Select(u => u.role_id).FirstOrDefault();
-            string role = _db.roles.Where(r => r.id == roleId).Select(r => r.role_name).FirstOrDefault()!;
-            return role;
+            return await _db.user_roles
+                .Where(ur => ur.user_id == userId)
+                .Join(
+                    _db.roles,
+                    ur => ur.role_id,
+                    role => role.id,
+                    (_, role) => role.role_name)
+                .FirstOrDefaultAsync();
         }
 
         public async Task<User?> CheckUser(string email)
         {
-            var user = _db.users.FirstOrDefault(u => u.email == email);
+            return await _db.users.FirstOrDefaultAsync(u => u.email == email);
+        }
 
-            return user != null ? user : null;
+        public async Task<bool> EmailExists(string email)
+        {
+            return await _db.users.AnyAsync(u => u.email == email);
         }
     }
 }
