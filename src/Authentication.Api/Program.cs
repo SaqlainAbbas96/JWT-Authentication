@@ -9,25 +9,32 @@ using Authentication.Infrastructure.Identity;
 using Authentication.Infrastructure.Persistence;
 using Authentication.Infrastructure.Repositories;
 using Authentication.Infrastructure.Security;
-using Microsoft.EntityFrameworkCore;
-using Scalar.AspNetCore;
 using FluentValidation;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure JWT options
-builder.Services.Configure<JwtOptions>(
-    builder.Configuration.GetRequiredSection("Jwt"));
+builder.Services
+    .AddOptions<JwtOptions>()
+    .Bind(builder.Configuration.GetRequiredSection("Jwt"))
+    .ValidateOnStart();
+
+builder.Services.AddSingleton<IValidateOptions<JwtOptions>, JwtOptionsValidator>();
 
 // Configure JWT authentication
-AuthenticationExtensions.Configure(builder.Services, builder.Configuration);
+AuthenticationExtensions.AddJwtAuthentication(
+    builder.Services);
 
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 builder.Services.AddDbContext<DBContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("Postgres")));
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();

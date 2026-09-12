@@ -1,9 +1,15 @@
 ﻿namespace Authentication.Application.Configuration
 {
-    public class JwtOptions
+    public sealed class JwtOptions
     {
-        public string Key { get; init; } = default!;
-        public string Issuer { get; init; } = default!;
-        public string Audience { get; init; } = default!;
+        public const string SectionName = "Jwt";
+
+        public string Key { get; set; } = string.Empty;
+
+        public string Issuer { get; set; } = string.Empty;
+
+        public string Audience { get; set; } = string.Empty;
+
+        public int AccessTokenExpirationMinutes { get; set; }
     }
 }

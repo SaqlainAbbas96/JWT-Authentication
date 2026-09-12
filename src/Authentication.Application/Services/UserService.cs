@@ -23,16 +23,17 @@ namespace Authentication.Application.Services
             if (await _userRepository.EmailExists(request.Email))
                 throw new ConflictException("Email is already registered.");
 
-            User user = new User();
-
             var (hash, salt) = _passwordHasher.HashPassword(request.Password);
 
-            user.email = request.Email;
-            user.password_hash = hash;
-            user.password_salt = salt;
+            User user = new User
+            {
+                email = request.Email,
+                password_hash = hash,
+                password_salt = salt
+            };
 
-            await _userRepository.RegisterUser(user);
-            
+            await _userRepository.RegisterUser(user, "user");
+
             return new RegisterResponseDto
             {
                 UserId = user.id,
@@ -58,11 +59,21 @@ namespace Authentication.Application.Services
 
             var userRole = await _userRepository.GetRole(user.id);
 
-            var token = _jwtAuthenticationService.GenerateToken(request.Email, userRole);
+            if (string.IsNullOrWhiteSpace(userRole))
+            {
+                throw new UnauthorizedException(
+                    "User role is not configured.");
+            }
+
+            var (accessToken, expiresAt) =
+                _jwtAuthenticationService.GenerateToken(
+                    user.id,
+                    user.email,
+                    userRole);
 
             return new LoginResponseDto
             {
-                AccessToken = token,
+                AccessToken = accessToken,
                 TokenType = "Bearer",
                 ExpiresAt = DateTime.UtcNow.AddDays(1)
             };

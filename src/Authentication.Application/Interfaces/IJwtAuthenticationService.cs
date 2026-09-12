@@ -2,6 +2,9 @@
 {
 	public interface IJwtAuthenticationService
 	{
-		string GenerateToken(string username, string userrole);
-	}
+        (string AccessToken, DateTime ExpiresAt) GenerateToken(
+            int userId,
+            string email,
+            string role);
+    }
 }
