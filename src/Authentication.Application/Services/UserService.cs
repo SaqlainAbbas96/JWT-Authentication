@@ -11,11 +11,17 @@ namespace Authentication.Application.Services
         private readonly IUserRepository _userRepository;
         private readonly IJwtAuthenticationService _jwtAuthenticationService;
         private readonly IPasswordHasher _passwordHasher;
-        public UserService(IUserRepository userRepository, IJwtAuthenticationService jwtAuthenticationService, IPasswordHasher passwordHasher)
+        private readonly IRefreshTokenService _refreshTokenService;
+        public UserService(
+            IUserRepository userRepository, 
+            IJwtAuthenticationService jwtAuthenticationService, 
+            IPasswordHasher passwordHasher,
+            IRefreshTokenService refreshTokenService)
         {
             _jwtAuthenticationService = jwtAuthenticationService;
             _userRepository = userRepository;
             _passwordHasher = passwordHasher;
+            _refreshTokenService = refreshTokenService;
         }
 
         public async Task<RegisterResponseDto> RegisterUser(RegisterRequestDto request)
@@ -47,15 +53,21 @@ namespace Authentication.Application.Services
             var user = await _userRepository.CheckUser(request.Email);
 
             if (user is null)
-                throw new UnauthorizedException("Invalid credentials.");
+            {
+                throw new UnauthorizedException(
+                    "Invalid email or password.");
+            }
 
-            var valid = _passwordHasher.VerifyPassword(
+            var passwordValid = _passwordHasher.VerifyPassword(
                 request.Password,
                 user.password_hash,
                 user.password_salt);
 
-            if (!valid)
-                throw new UnauthorizedException("Invalid credentials.");
+            if (!passwordValid)
+            {
+                throw new UnauthorizedException(
+                    "Invalid email or password.");
+            }
 
             var userRole = await _userRepository.GetRole(user.id);
 
@@ -71,11 +83,25 @@ namespace Authentication.Application.Services
                     user.email,
                     userRole);
 
+            var refreshTokenResult = _refreshTokenService.GenerateToken();
+
+            var refreshToken = new RefreshToken
+            {
+                user_id = user.id,
+                token_hash = refreshTokenResult.TokenHash,
+                family_id = refreshTokenResult.FamilyId,
+                created_at = refreshTokenResult.CreatedAt,
+                expires_at = refreshTokenResult.ExpiresAt
+            };
+
+            await _userRepository.CreateRefreshToken(refreshToken);
+
             return new LoginResponseDto
             {
                 AccessToken = accessToken,
+                RefreshToken = refreshTokenResult.Token,
                 TokenType = "Bearer",
-                ExpiresAt = DateTime.UtcNow.AddDays(1)
+                ExpiresAt = expiresAt
             };
         }
     }

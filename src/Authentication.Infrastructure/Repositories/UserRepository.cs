@@ -86,5 +86,12 @@ namespace Authentication.Infrastructure.Repositories
         {
             return await _db.users.AnyAsync(u => u.email == email);
         }
+
+        public async Task CreateRefreshToken(RefreshToken refreshToken)
+        {
+            _db.refresh_tokens.Add(refreshToken);
+
+            await _db.SaveChangesAsync();
+        }
     }
 }

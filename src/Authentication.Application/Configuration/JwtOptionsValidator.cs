@@ -51,6 +51,12 @@ namespace Authentication.Application.Configuration
                     "Jwt:AccessTokenExpirationMinutes must be greater than zero.");
             }
 
+            if (options.RefreshTokenExpirationDays <= 0)
+            {
+                failures.Add(
+                    "Jwt:RefreshTokenExpirationDays must be greater than zero.");
+            }
+
             return failures.Count > 0
                 ? ValidateOptionsResult.Fail(failures)
                 : ValidateOptionsResult.Success;
