@@ -59,6 +59,20 @@ namespace Authentication.Api.Endpoints
             + "The submitted refresh token is invalidated after successful use.")
             .AddEndpointFilter<ValidationFilter<RefreshTokenRequestDto>>();
 
+            group.MapPost("/logout",
+                async (
+                    RefreshTokenRequestDto request,
+                    IRefreshTokenService refreshTokenService) =>
+                {
+                    await refreshTokenService.RevokeTokenFamilyAsync(request.RefreshToken);
+                    return Results.NoContent();
+                })
+            .WithName("Logout")
+            .WithSummary("Log out the current session")
+            .WithDescription("Revokes the refresh token family associated with the supplied refresh token. " 
+            + "This invalidates the current session and prevents the refresh token from being used again.")
+            .AddEndpointFilter<ValidationFilter<RefreshTokenRequestDto>>();
+
             return app;
         }
     }

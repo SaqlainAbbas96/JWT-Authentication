@@ -193,6 +193,50 @@ namespace Authentication.Infrastructure.Security
                 expiresAt);
         }
 
+        public async Task RevokeTokenFamilyAsync(string refreshToken)
+        {
+            if (string.IsNullOrWhiteSpace(refreshToken))
+            {
+                return;
+            }
+
+            var tokenHash = ComputeHash(refreshToken);
+
+            var storedToken = await _db.refresh_tokens
+                .AsNoTracking()
+                .Where(rt => rt.token_hash == tokenHash)
+                .Select(rt => new
+                {
+                    rt.family_id
+                })
+                .SingleOrDefaultAsync();
+
+            if (storedToken is null)
+            {
+                return;
+            }
+
+            await using var transaction =
+                await _db.Database.BeginTransactionAsync();
+
+            try
+            {
+                await RevokeTokenFamilyAsync(
+                    storedToken.family_id);
+
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                if (_db.Database.CurrentTransaction is not null)
+                {
+                    await transaction.RollbackAsync();
+                }
+
+                throw;
+            }
+        }
+
         private RefreshTokenResult GenerateToken(Guid familyId)
         {
             var createdAt = DateTime.UtcNow;

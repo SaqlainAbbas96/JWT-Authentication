@@ -6,5 +6,6 @@ namespace Authentication.Application.Interfaces
     {
         RefreshTokenResult GenerateToken();
         Task<RefreshTokenRotationResult> RotateTokenAsync(string refreshToken);
+        Task RevokeTokenFamilyAsync(string refreshToken);
     }
 }

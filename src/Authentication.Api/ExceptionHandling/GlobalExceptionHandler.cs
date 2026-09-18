@@ -21,13 +21,15 @@ namespace Authentication.Api.ExceptionHandling
             var problemDetails = exception switch
             {
                 ValidationException validationException =>
-                    CreateValidationProblem(validationException, httpContext),
+                    CreateValidationProblem(
+                        validationException, 
+                        httpContext),
 
-                UnauthorizedException =>
+                UnauthorizedException unauthorizedException =>
                     CreateProblem(
                         StatusCodes.Status401Unauthorized,
                         "Unauthorized",
-                        "Invalid credentials.",
+                        unauthorizedException.Message,
                         httpContext),
 
                 ConflictException conflictException =>
