@@ -15,19 +15,53 @@ namespace Authentication.Infrastructure.Repositories
             _db = db;
         }
 
-        public async Task RegisterUser(User user)
+        public async Task RegisterUser(User user, string defaultRole)
         {
-            _db.users.Add(user);
+            await using var transaction =
+                await _db.Database.BeginTransactionAsync();
 
             try
             {
+                _db.users.Add(user);
+
                 await _db.SaveChangesAsync();
+
+                var roleId = await _db.roles
+                    .Where(r => r.role_name == defaultRole)
+                    .Select(r => (int?)r.id)
+                    .FirstOrDefaultAsync();
+
+                if (roleId is null)
+                {
+                    throw new InvalidOperationException(
+                        $"Role '{defaultRole}' does not exist.");
+                }
+
+                var userRole = new UserRoles
+                {
+                    user_id = user.id,
+                    role_id = roleId.Value
+                };
+
+                _db.user_roles.Add(userRole);
+
+                await _db.SaveChangesAsync();
+
+                await transaction.CommitAsync();
             }
             catch (DbUpdateException ex) when (
                 ex.InnerException is PostgresException postgresException &&
                 postgresException.SqlState == PostgresErrorCodes.UniqueViolation)
             {
+                await transaction.RollbackAsync();
+
                 throw new ConflictException("Email is already registered.");
+            }
+            catch 
+            {
+                await transaction.RollbackAsync();
+
+                throw;
             }
         }
 
@@ -51,6 +85,13 @@ namespace Authentication.Infrastructure.Repositories
         public async Task<bool> EmailExists(string email)
         {
             return await _db.users.AnyAsync(u => u.email == email);
+        }
+
+        public async Task CreateRefreshToken(RefreshToken refreshToken)
+        {
+            _db.refresh_tokens.Add(refreshToken);
+
+            await _db.SaveChangesAsync();
         }
     }
 }
