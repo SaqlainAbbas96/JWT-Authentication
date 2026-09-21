@@ -28,6 +28,9 @@ builder.Services.AddSingleton<IValidateOptions<JwtOptions>, JwtOptionsValidator>
 AuthenticationExtensions.AddJwtAuthentication(
     builder.Services);
 
+// Configure authentication rate limiting
+builder.Services.AddAuthenticationRateLimiting();
+
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
@@ -63,6 +66,8 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseExceptionHandler();
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();

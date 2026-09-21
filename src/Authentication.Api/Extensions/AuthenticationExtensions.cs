@@ -25,6 +25,8 @@ namespace Authentication.Api.Extensions
                         var signingKey = new SymmetricSecurityKey(
                             Convert.FromBase64String(settings.Key));
 
+                        options.RequireHttpsMetadata = true;
+
                         options.TokenValidationParameters =
                             new TokenValidationParameters
                             {
