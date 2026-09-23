@@ -42,7 +42,8 @@ namespace Authentication.IntegrationTests.Infrastructure
                         ["Jwt:Issuer"] = "Authentication.Api",
                         ["Jwt:Audience"] = "Authentication.Client",
                         ["Jwt:AccessTokenExpirationMinutes"] = "15",
-                        ["Jwt:RefreshTokenExpirationDays"] = _refreshTokenExpirationDays.ToString()
+                        ["Jwt:RefreshTokenExpirationDays"] = _refreshTokenExpirationDays.ToString(),
+                        ["Cors:AllowedOrigins:0"] = "https://test-client.example.com"
                     });
             });
 
