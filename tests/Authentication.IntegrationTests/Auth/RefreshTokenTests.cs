@@ -1,5 +1,6 @@
 using Authentication.IntegrationTests.Infrastructure;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -958,10 +959,18 @@ public sealed class RefreshTokenTests
             await firstLoginResponse.Content
                 .ReadFromJsonAsync<JsonElement>();
 
+        var firstAccessToken =
+            firstLoginBody
+                .GetProperty("accessToken")
+                .GetString();
+
         var firstRefreshToken =
             firstLoginBody
                 .GetProperty("refreshToken")
                 .GetString();
+
+        Assert.False(
+            string.IsNullOrWhiteSpace(firstAccessToken));
 
         Assert.False(
             string.IsNullOrWhiteSpace(firstRefreshToken));
@@ -995,6 +1004,11 @@ public sealed class RefreshTokenTests
         Assert.NotEqual(
             firstRefreshToken,
             secondRefreshToken);
+
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue(
+                "Bearer",
+                firstAccessToken);
 
         // Logout session A.
         var logoutResponse =

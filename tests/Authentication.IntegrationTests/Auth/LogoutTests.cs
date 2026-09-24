@@ -1,5 +1,6 @@
 ﻿using Authentication.IntegrationTests.Infrastructure;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -74,13 +75,25 @@ public sealed class LogoutTests
             await loginResponse.Content
                 .ReadFromJsonAsync<JsonElement>();
 
+        var accessToken =
+            loginBody
+                .GetProperty("accessToken")
+                .GetString();
+
         var refreshToken =
             loginBody
                 .GetProperty("refreshToken")
                 .GetString();
 
         Assert.False(
+            string.IsNullOrWhiteSpace(accessToken));
+
+        Assert.False(
             string.IsNullOrWhiteSpace(refreshToken));
+
+        SetBearerToken(
+            _client,
+            accessToken!);
 
         var logoutResponse =
             await _client.PostAsJsonAsync(
@@ -137,13 +150,25 @@ public sealed class LogoutTests
             await loginResponse.Content
                 .ReadFromJsonAsync<JsonElement>();
 
+        var accessToken =
+            loginBody
+                .GetProperty("accessToken")
+                .GetString();
+
         var refreshToken =
             loginBody
                 .GetProperty("refreshToken")
                 .GetString();
 
         Assert.False(
+            string.IsNullOrWhiteSpace(accessToken));
+
+        Assert.False(
             string.IsNullOrWhiteSpace(refreshToken));
+
+        SetBearerToken(
+           _client,
+           accessToken!);
 
         var logoutResponse =
             await _client.PostAsJsonAsync(
@@ -194,6 +219,49 @@ public sealed class LogoutTests
     [Fact]
     public async Task Logout_WithUnknownRefreshToken_ShouldReturnNoContent()
     {
+        var email =
+            $"logout-unknown-{Guid.NewGuid():N}@example.com";
+
+        var password = "Password123!";
+
+        await _client.PostAsJsonAsync(
+            "/api/auth/register",
+            new
+            {
+                email,
+                password
+            });
+
+        var loginResponse =
+            await _client.PostAsJsonAsync(
+                "/api/auth/login",
+                new
+                {
+                    email,
+                    password
+                });
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            loginResponse.StatusCode);
+
+        var loginBody =
+            await loginResponse.Content
+                .ReadFromJsonAsync<JsonElement>();
+
+        var accessToken =
+            loginBody
+                .GetProperty("accessToken")
+                .GetString();
+
+        Assert.False(
+            string.IsNullOrWhiteSpace(accessToken));
+
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue(
+                "Bearer",
+                accessToken);
+
         var refreshToken =
             "unknown-refresh-token-that-does-not-exist";
 
@@ -217,6 +285,49 @@ public sealed class LogoutTests
     [Fact]
     public async Task Logout_WhenRefreshTokenIsMissing_ShouldReturnBadRequest()
     {
+        var email =
+            $"logout-missing-{Guid.NewGuid():N}@example.com";
+
+        var password = "Password123!";
+
+        await _client.PostAsJsonAsync(
+            "/api/auth/register",
+            new
+            {
+                email,
+                password
+            });
+
+        var loginResponse =
+            await _client.PostAsJsonAsync(
+                "/api/auth/login",
+                new
+                {
+                    email,
+                    password
+                });
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            loginResponse.StatusCode);
+
+        var loginBody =
+            await loginResponse.Content
+                .ReadFromJsonAsync<JsonElement>();
+
+        var accessToken =
+            loginBody
+                .GetProperty("accessToken")
+                .GetString();
+
+        Assert.False(
+            string.IsNullOrWhiteSpace(accessToken));
+
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue(
+                "Bearer",
+                accessToken);
+
         var logoutResponse =
             await _client.PostAsJsonAsync(
                 "/api/auth/logout",
@@ -258,6 +369,49 @@ public sealed class LogoutTests
     [Fact]
     public async Task Logout_WhenRefreshTokenIsEmpty_ShouldReturnBadRequest()
     {
+        var email =
+            $"logout-empty-{Guid.NewGuid():N}@example.com";
+
+        var password = "Password123!";
+
+        await _client.PostAsJsonAsync(
+            "/api/auth/register",
+            new
+            {
+                email,
+                password
+            });
+
+        var loginResponse =
+            await _client.PostAsJsonAsync(
+                "/api/auth/login",
+                new
+                {
+                    email,
+                    password
+                });
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            loginResponse.StatusCode);
+
+        var loginBody =
+            await loginResponse.Content
+                .ReadFromJsonAsync<JsonElement>();
+
+        var accessToken =
+            loginBody
+                .GetProperty("accessToken")
+                .GetString();
+
+        Assert.False(
+            string.IsNullOrWhiteSpace(accessToken));
+
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue(
+                "Bearer",
+                accessToken);
+
         var logoutResponse =
             await _client.PostAsJsonAsync(
                 "/api/auth/logout",
@@ -335,13 +489,25 @@ public sealed class LogoutTests
             await loginResponse.Content
                 .ReadFromJsonAsync<JsonElement>();
 
+        var accessToken =
+            loginBody
+                .GetProperty("accessToken")
+                .GetString();
+
         var refreshToken =
             loginBody
                 .GetProperty("refreshToken")
                 .GetString();
 
         Assert.False(
+            string.IsNullOrWhiteSpace(accessToken));
+
+        Assert.False(
             string.IsNullOrWhiteSpace(refreshToken));
+
+        SetBearerToken(
+           _client,
+           accessToken!);
 
         var logoutResponse =
             await _client.PostAsJsonAsync(
@@ -406,13 +572,25 @@ public sealed class LogoutTests
             await loginResponse.Content
                 .ReadFromJsonAsync<JsonElement>();
 
+        var accessToken =
+            loginBody
+                .GetProperty("accessToken")
+                .GetString();
+
         var refreshToken =
             loginBody
                 .GetProperty("refreshToken")
                 .GetString();
 
         Assert.False(
+            string.IsNullOrWhiteSpace(accessToken));
+
+        Assert.False(
             string.IsNullOrWhiteSpace(refreshToken));
+
+        SetBearerToken(
+           _client,
+           accessToken!);
 
         var logoutResponse =
             await _client.PostAsJsonAsync(
@@ -504,13 +682,25 @@ public sealed class LogoutTests
             await loginResponse.Content
                 .ReadFromJsonAsync<JsonElement>();
 
+        var accessToken =
+            loginBody
+                .GetProperty("accessToken")
+                .GetString();
+
         var refreshToken =
             loginBody
                 .GetProperty("refreshToken")
                 .GetString();
 
         Assert.False(
+            string.IsNullOrWhiteSpace(accessToken));
+
+        Assert.False(
             string.IsNullOrWhiteSpace(refreshToken));
+
+        SetBearerToken(
+           _client,
+           accessToken!);
 
         var firstLogoutResponse =
             await _client.PostAsJsonAsync(
@@ -535,5 +725,15 @@ public sealed class LogoutTests
         Assert.Equal(
             HttpStatusCode.NoContent,
             secondLogoutResponse.StatusCode);
+    }
+
+    private static void SetBearerToken(
+        HttpClient client,
+        string accessToken)
+    {
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue(
+                "Bearer",
+                accessToken);
     }
 }
