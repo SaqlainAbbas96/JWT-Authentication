@@ -20,6 +20,7 @@ namespace Authentication.Api.Endpoints
 
                     return Results.Created($"/api/users/{result.UserId}", result);
                 })
+            .AllowAnonymous()
             .WithName("Register")
             .WithSummary("Register a new user")
             .WithDescription("Creates a new user account.")
@@ -33,6 +34,7 @@ namespace Authentication.Api.Endpoints
 
                     return Results.Ok(result);
                 })
+            .AllowAnonymous()
             .WithName("Login")
             .WithSummary("Authenticate user")
             .WithDescription("Authenticates a user and returns a JWT.")
@@ -56,6 +58,7 @@ namespace Authentication.Api.Endpoints
                         ExpiresAt = result.AccessTokenExpiresAt
                     });
                 })
+            .AllowAnonymous()
             .WithName("RefreshAccessToken")
             .WithSummary("Refresh access token")
             .WithDescription("Issues a new access token and rotates the refresh token. "
@@ -71,6 +74,7 @@ namespace Authentication.Api.Endpoints
                     await refreshTokenService.RevokeTokenFamilyAsync(request.RefreshToken);
                     return Results.NoContent();
                 })
+            .RequireAuthorization()
             .WithName("Logout")
             .WithSummary("Log out the current session")
             .WithDescription("Revokes the refresh token family associated with the supplied refresh token. " 

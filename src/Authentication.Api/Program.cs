@@ -31,6 +31,9 @@ AuthenticationExtensions.AddJwtAuthentication(
 // Configure authentication rate limiting
 builder.Services.AddAuthenticationRateLimiting();
 
+// Configure CORS
+builder.Services.AddApiCors();
+
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
@@ -67,7 +70,11 @@ app.UseHttpsRedirection();
 
 app.UseExceptionHandler();
 
+app.UseSecurityHeaders();
+
 app.UseRateLimiter();
+
+app.UseApiCors();
 
 app.UseAuthentication();
 app.UseAuthorization();
