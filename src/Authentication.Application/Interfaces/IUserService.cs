@@ -5,7 +5,12 @@ namespace Authentication.Application.Interfaces
 {
 	public interface IUserService
 	{
-        Task<RegisterResponseDto> RegisterUser(RegisterRequestDto request);
-        Task<LoginResponseDto> Authenticate(LoginRequestDto request);
+        Task<RegisterResponseDto> RegisterUser(
+            RegisterRequestDto request,
+            CancellationToken cancellationToken);
+
+        Task<LoginResponseDto> Authenticate(
+            LoginRequestDto request,
+            CancellationToken cancellationToken);
     }
 }
