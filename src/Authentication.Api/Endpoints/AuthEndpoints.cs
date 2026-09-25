@@ -14,9 +14,15 @@ namespace Authentication.Api.Endpoints
                 .WithTags("Authentication");
 
             group.MapPost("/register",
-                async (RegisterRequestDto userDto, IUserService userService) =>
+                async (
+                    RegisterRequestDto userDto, 
+                    IUserService userService,
+                    CancellationToken cancellationToken) =>
                 {
-                    var result = await userService.RegisterUser(userDto);
+                    var result = 
+                        await userService.RegisterUser(
+                            userDto,
+                            cancellationToken);
 
                     return Results.Created($"/api/users/{result.UserId}", result);
                 })
@@ -28,9 +34,15 @@ namespace Authentication.Api.Endpoints
             .AddEndpointFilter<ValidationFilter<RegisterRequestDto>>();
 
             group.MapPost("/login",
-                async (LoginRequestDto loginDto, IUserService userService) =>
+                async (
+                    LoginRequestDto loginDto, 
+                    IUserService userService,
+                    CancellationToken cancellationToken) =>
                 {
-                    var result = await userService.Authenticate(loginDto);
+                    var result = 
+                        await userService.Authenticate(
+                            loginDto,
+                            cancellationToken);
 
                     return Results.Ok(result);
                 })
@@ -44,11 +56,13 @@ namespace Authentication.Api.Endpoints
             group.MapPost("/refresh-token",
                 async (
                     RefreshTokenRequestDto request,
-                    IRefreshTokenService refreshTokenService) =>
+                    IRefreshTokenService refreshTokenService,
+                    CancellationToken cancellationToken) =>
                 {
                     var result =
                         await refreshTokenService.RotateTokenAsync(
-                            request.RefreshToken);
+                            request.RefreshToken,
+                            cancellationToken);
 
                     return Results.Ok(new LoginResponseDto
                     {
@@ -69,9 +83,13 @@ namespace Authentication.Api.Endpoints
             group.MapPost("/logout",
                 async (
                     RefreshTokenRequestDto request,
-                    IRefreshTokenService refreshTokenService) =>
+                    IRefreshTokenService refreshTokenService,
+                    CancellationToken cancellationToken) =>
                 {
-                    await refreshTokenService.RevokeTokenFamilyAsync(request.RefreshToken);
+                    await refreshTokenService.RevokeTokenFamilyAsync(
+                        request.RefreshToken,
+                        cancellationToken);
+
                     return Results.NoContent();
                 })
             .RequireAuthorization()

@@ -24,10 +24,17 @@ namespace Authentication.Application.Services
             _refreshTokenService = refreshTokenService;
         }
 
-        public async Task<RegisterResponseDto> RegisterUser(RegisterRequestDto request)
+        public async Task<RegisterResponseDto> RegisterUser(
+            RegisterRequestDto request, 
+            CancellationToken cancellationToken)
         {
-            if (await _userRepository.EmailExists(request.Email))
-                throw new ConflictException("Email is already registered.");
+            if (await _userRepository.EmailExists(
+                    request.Email,
+                    cancellationToken))
+            {
+                throw new ConflictException(
+                    "Email is already registered.");
+            }
 
             var (hash, salt) = _passwordHasher.HashPassword(request.Password);
 
@@ -38,7 +45,10 @@ namespace Authentication.Application.Services
                 password_salt = salt
             };
 
-            await _userRepository.RegisterUser(user, "user");
+            await _userRepository.RegisterUser(
+                user, 
+                "user",
+                cancellationToken);
 
             return new RegisterResponseDto
             {
@@ -48,9 +58,14 @@ namespace Authentication.Application.Services
             };
         }
 
-        public async Task<LoginResponseDto> Authenticate(LoginRequestDto request)
+        public async Task<LoginResponseDto> Authenticate(
+            LoginRequestDto request,
+            CancellationToken cancellationToken)
         {
-            var user = await _userRepository.CheckUser(request.Email);
+            var user = 
+                await _userRepository.CheckUser(
+                    request.Email,
+                    cancellationToken);
 
             if (user is null)
             {
@@ -69,7 +84,10 @@ namespace Authentication.Application.Services
                     "Invalid email or password.");
             }
 
-            var userRole = await _userRepository.GetRole(user.id);
+            var userRole = 
+                await _userRepository.GetRole(
+                    user.id, 
+                    cancellationToken);
 
             if (string.IsNullOrWhiteSpace(userRole))
             {
@@ -83,7 +101,8 @@ namespace Authentication.Application.Services
                     user.email,
                     userRole);
 
-            var refreshTokenResult = _refreshTokenService.GenerateToken();
+            var refreshTokenResult = 
+                _refreshTokenService.GenerateToken();
 
             var refreshToken = new RefreshToken
             {
@@ -94,7 +113,9 @@ namespace Authentication.Application.Services
                 expires_at = refreshTokenResult.ExpiresAt
             };
 
-            await _userRepository.CreateRefreshToken(refreshToken);
+            await _userRepository.CreateRefreshToken(
+                refreshToken,
+                cancellationToken);
 
             return new LoginResponseDto
             {

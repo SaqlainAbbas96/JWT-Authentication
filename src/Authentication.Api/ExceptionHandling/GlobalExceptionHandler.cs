@@ -13,11 +13,6 @@ namespace Authentication.Api.ExceptionHandling
             Exception exception,
             CancellationToken cancellationToken)
         {
-            logger.LogError(
-            exception,
-            "Unhandled exception occurred. TraceId: {TraceId}",
-            httpContext.TraceIdentifier);
-
             var problemDetails = exception switch
             {
                 ValidationException validationException =>
@@ -39,12 +34,9 @@ namespace Authentication.Api.ExceptionHandling
                         conflictException.Message,
                         httpContext),
 
-                _ =>
-                    CreateProblem(
-                        StatusCodes.Status500InternalServerError,
-                        "Internal Server Error",
-                        "An unexpected error occurred.",
-                        httpContext)
+                _ => CreateUnexpectedProblem(
+                    httpContext,
+                    exception)
             };
 
             httpContext.Response.StatusCode = problemDetails.Status!.Value;
@@ -56,6 +48,22 @@ namespace Authentication.Api.ExceptionHandling
             return true;
         }
 
+        private ProblemDetails CreateUnexpectedProblem(
+            HttpContext httpContext,
+            Exception exception)
+        {
+            logger.LogError(
+                exception,
+                "Unhandled exception occurred. TraceId: {TraceId}",
+                httpContext.TraceIdentifier);
+
+            return CreateProblem(
+                StatusCodes.Status500InternalServerError,
+                "Internal Server Error",
+                "An unexpected error occurred.",
+                httpContext);
+        }
+
         private static ProblemDetails CreateValidationProblem(
             ValidationException exception,
             HttpContext httpContext)
@@ -64,7 +72,9 @@ namespace Authentication.Api.ExceptionHandling
                 .GroupBy(error => error.PropertyName)
                 .ToDictionary(
                     group => group.Key,
-                    group => group.Select(error => error.ErrorMessage).ToArray());
+                    group => group
+                        .Select(error => error.ErrorMessage)
+                        .ToArray());
 
             var problemDetails = new ProblemDetails
             {

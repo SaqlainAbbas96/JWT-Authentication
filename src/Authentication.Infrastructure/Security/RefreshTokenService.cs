@@ -54,7 +54,9 @@ namespace Authentication.Infrastructure.Security
                 expiresAt);
         }
 
-        public async Task<RefreshTokenRotationResult> RotateTokenAsync(string refreshToken)
+        public async Task<RefreshTokenRotationResult> RotateTokenAsync(
+            string refreshToken,
+            CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(refreshToken))
             {
@@ -70,7 +72,8 @@ namespace Authentication.Infrastructure.Security
             string newRefreshToken;
 
             await using var transaction =
-                await _db.Database.BeginTransactionAsync();
+                await _db.Database.BeginTransactionAsync(
+                    cancellationToken);
 
             try
             {
@@ -81,7 +84,7 @@ namespace Authentication.Infrastructure.Security
                         WHERE token_hash = {tokenHash}
                         FOR UPDATE
                         """)
-                    .SingleOrDefaultAsync();
+                    .SingleOrDefaultAsync(cancellationToken);
 
                 if (storedToken is null)
                 {
@@ -92,7 +95,8 @@ namespace Authentication.Infrastructure.Security
                 if (storedToken.revoked_at is not null)
                 {
                     await RevokeTokenFamilyAsync(
-                        storedToken.family_id);
+                        storedToken.family_id,
+                        cancellationToken);
 
                     await transaction.CommitAsync();
 
@@ -104,11 +108,14 @@ namespace Authentication.Infrastructure.Security
                 {
                     storedToken.revoked_at = DateTime.UtcNow;
 
-                    await _db.SaveChangesAsync();
-                    await transaction.CommitAsync();
+                    await _db.SaveChangesAsync(
+                        cancellationToken);
+
+                    await transaction.CommitAsync(
+                        cancellationToken);
 
                     throw new UnauthorizedException(
-                        "Refresh token has expired.");
+                        "Invalid refresh token.");
                 }
 
                 var userData = await _db.user_roles
@@ -121,24 +128,26 @@ namespace Authentication.Infrastructure.Security
                         {
                             role.role_name
                         })
-                    .FirstOrDefaultAsync();
+                    .FirstOrDefaultAsync(
+                        cancellationToken);
 
                 if (userData is null ||
                     string.IsNullOrWhiteSpace(userData.role_name))
                 {
                     throw new UnauthorizedException(
-                        "User role is not configured.");
+                        "Invalid refresh token.");
                 }
 
                 var email = await _db.users
                     .Where(user => user.id == storedToken.user_id)
                     .Select(user => user.email)
-                    .SingleOrDefaultAsync();
+                    .SingleOrDefaultAsync(
+                        cancellationToken);
 
                 if (string.IsNullOrWhiteSpace(email))
                 {
                     throw new UnauthorizedException(
-                        "User is not configured.");
+                        "Invalid refresh token.");
                 }
 
                 var newRefreshTokenResult = GenerateToken(
@@ -161,20 +170,23 @@ namespace Authentication.Infrastructure.Security
                 storedToken.replaced_by_token_id =
                     replacementToken.id;
 
-                await _db.SaveChangesAsync();
+                await _db.SaveChangesAsync(
+                    cancellationToken);
 
                 userId = storedToken.user_id;
                 userEmail = email;
                 userRole = userData.role_name;
                 newRefreshToken = newRefreshTokenResult.Token;
 
-                await transaction.CommitAsync();
+                await transaction.CommitAsync(
+                    cancellationToken);
             }
             catch
             {
                 if (_db.Database.CurrentTransaction is not null)
                 {
-                    await transaction.RollbackAsync();
+                    await transaction.RollbackAsync(
+                        CancellationToken.None);
                 }
 
                 throw;
@@ -193,7 +205,9 @@ namespace Authentication.Infrastructure.Security
                 expiresAt);
         }
 
-        public async Task RevokeTokenFamilyAsync(string refreshToken)
+        public async Task RevokeTokenFamilyAsync(
+            string refreshToken,
+            CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(refreshToken))
             {
@@ -209,7 +223,8 @@ namespace Authentication.Infrastructure.Security
                 {
                     rt.family_id
                 })
-                .SingleOrDefaultAsync();
+                .SingleOrDefaultAsync(
+                    cancellationToken);
 
             if (storedToken is null)
             {
@@ -217,20 +232,24 @@ namespace Authentication.Infrastructure.Security
             }
 
             await using var transaction =
-                await _db.Database.BeginTransactionAsync();
+                await _db.Database.BeginTransactionAsync(
+                    cancellationToken);
 
             try
             {
                 await RevokeTokenFamilyAsync(
-                    storedToken.family_id);
+                    storedToken.family_id,
+                    cancellationToken);
 
-                await transaction.CommitAsync();
+                await transaction.CommitAsync(
+                    cancellationToken);
             }
             catch
             {
                 if (_db.Database.CurrentTransaction is not null)
                 {
-                    await transaction.RollbackAsync();
+                    await transaction.RollbackAsync(
+                        CancellationToken.None);
                 }
 
                 throw;
@@ -259,12 +278,15 @@ namespace Authentication.Infrastructure.Security
                 expiresAt);
         }
 
-        private async Task RevokeTokenFamilyAsync(Guid familyId)
+        private async Task RevokeTokenFamilyAsync(
+            Guid familyId,
+            CancellationToken cancellationToken)
         {
             var tokens = await _db.refresh_tokens
                 .Where(rt => rt.family_id == familyId &&
                              rt.revoked_at == null)
-                .ToListAsync();
+                .ToListAsync(
+                    cancellationToken);
 
             var revokedAt = DateTime.UtcNow;
 
@@ -273,23 +295,8 @@ namespace Authentication.Infrastructure.Security
                 token.revoked_at = revokedAt;
             }
 
-            await _db.SaveChangesAsync();
-        }
-
-        private async Task<string> GetUserEmailAsync(int userId)
-        {
-            var email = await _db.users
-                .Where(user => user.id == userId)
-                .Select(user => user.email)
-                .SingleOrDefaultAsync();
-
-            if (string.IsNullOrWhiteSpace(email))
-            {
-                throw new UnauthorizedException(
-                    "User is not configured.");
-            }
-
-            return email;
+            await _db.SaveChangesAsync(
+                cancellationToken);
         }
 
         private static string ComputeHash(string token)
