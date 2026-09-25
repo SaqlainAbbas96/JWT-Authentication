@@ -470,7 +470,7 @@ public sealed class RefreshTokenTests
             problemDetails.GetProperty("title").GetString());
 
         Assert.Equal(
-            "Refresh token has expired.",
+            "Invalid refresh token.",
             problemDetails.GetProperty("detail").GetString());
 
         Assert.True(

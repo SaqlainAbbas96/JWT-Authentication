@@ -115,7 +115,7 @@ namespace Authentication.Infrastructure.Security
                         cancellationToken);
 
                     throw new UnauthorizedException(
-                        "Refresh token has expired.");
+                        "Invalid refresh token.");
                 }
 
                 var userData = await _db.user_roles
@@ -135,7 +135,7 @@ namespace Authentication.Infrastructure.Security
                     string.IsNullOrWhiteSpace(userData.role_name))
                 {
                     throw new UnauthorizedException(
-                        "User role is not configured.");
+                        "Invalid refresh token.");
                 }
 
                 var email = await _db.users
@@ -147,7 +147,7 @@ namespace Authentication.Infrastructure.Security
                 if (string.IsNullOrWhiteSpace(email))
                 {
                     throw new UnauthorizedException(
-                        "User is not configured.");
+                        "Invalid refresh token.");
                 }
 
                 var newRefreshTokenResult = GenerateToken(
@@ -297,22 +297,6 @@ namespace Authentication.Infrastructure.Security
 
             await _db.SaveChangesAsync(
                 cancellationToken);
-        }
-
-        private async Task<string> GetUserEmailAsync(int userId)
-        {
-            var email = await _db.users
-                .Where(user => user.id == userId)
-                .Select(user => user.email)
-                .SingleOrDefaultAsync();
-
-            if (string.IsNullOrWhiteSpace(email))
-            {
-                throw new UnauthorizedException(
-                    "User is not configured.");
-            }
-
-            return email;
         }
 
         private static string ComputeHash(string token)
