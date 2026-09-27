@@ -3,127 +3,153 @@ using Authentication.Application.Dtos.Responses;
 using Authentication.Application.Exceptions;
 using Authentication.Application.Interfaces;
 using Authentication.Domain.Entities;
+using Microsoft.Extensions.Logging;
 
-namespace Authentication.Application.Services
+namespace Authentication.Application.Services;
+
+public class UserService : IUserService
 {
-    public class UserService : IUserService
+    private readonly IUserRepository _userRepository;
+    private readonly IJwtAuthenticationService _jwtAuthenticationService;
+    private readonly IPasswordHasher _passwordHasher;
+    private readonly IRefreshTokenService _refreshTokenService;
+    private readonly ILogger<UserService> _logger;
+
+    public UserService(
+        IUserRepository userRepository,
+        IJwtAuthenticationService jwtAuthenticationService,
+        IPasswordHasher passwordHasher,
+        IRefreshTokenService refreshTokenService,
+        ILogger<UserService> logger)
     {
-        private readonly IUserRepository _userRepository;
-        private readonly IJwtAuthenticationService _jwtAuthenticationService;
-        private readonly IPasswordHasher _passwordHasher;
-        private readonly IRefreshTokenService _refreshTokenService;
-        public UserService(
-            IUserRepository userRepository, 
-            IJwtAuthenticationService jwtAuthenticationService, 
-            IPasswordHasher passwordHasher,
-            IRefreshTokenService refreshTokenService)
+        _jwtAuthenticationService = jwtAuthenticationService;
+        _userRepository = userRepository;
+        _passwordHasher = passwordHasher;
+        _refreshTokenService = refreshTokenService;
+        _logger = logger;
+    }
+
+    public async Task<RegisterResponseDto> RegisterUser(
+        RegisterRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        if (await _userRepository.EmailExists(
+                request.Email,
+                cancellationToken))
         {
-            _jwtAuthenticationService = jwtAuthenticationService;
-            _userRepository = userRepository;
-            _passwordHasher = passwordHasher;
-            _refreshTokenService = refreshTokenService;
+            throw new ConflictException(
+                "Email is already registered.");
         }
 
-        public async Task<RegisterResponseDto> RegisterUser(
-            RegisterRequestDto request, 
-            CancellationToken cancellationToken)
+        var (hash, salt) =
+            _passwordHasher.HashPassword(
+                request.Password);
+
+        var user = new User
         {
-            if (await _userRepository.EmailExists(
-                    request.Email,
-                    cancellationToken))
-            {
-                throw new ConflictException(
-                    "Email is already registered.");
-            }
+            email = request.Email,
+            password_hash = hash,
+            password_salt = salt
+        };
 
-            var (hash, salt) = _passwordHasher.HashPassword(request.Password);
+        await _userRepository.RegisterUser(
+            user,
+            "user",
+            cancellationToken);
 
-            User user = new User
-            {
-                email = request.Email,
-                password_hash = hash,
-                password_salt = salt
-            };
+        _logger.LogInformation(
+            "User registration succeeded. UserId: {UserId}",
+            user.id);
 
-            await _userRepository.RegisterUser(
-                user, 
-                "user",
+        return new RegisterResponseDto
+        {
+            UserId = user.id,
+            Email = user.email,
+            Message = "User registered successfully."
+        };
+    }
+
+    public async Task<LoginResponseDto> Authenticate(
+        LoginRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var user =
+            await _userRepository.CheckUser(
+                request.Email,
                 cancellationToken);
 
-            return new RegisterResponseDto
-            {
-                UserId = user.id,
-                Email = user.email,
-                Message = "User registered successfully."
-            };
+        if (user is null)
+        {
+            _logger.LogWarning(
+                "User authentication failed. Reason: Invalid credentials.");
+
+            throw new UnauthorizedException(
+                "Invalid email or password.");
         }
 
-        public async Task<LoginResponseDto> Authenticate(
-            LoginRequestDto request,
-            CancellationToken cancellationToken)
-        {
-            var user = 
-                await _userRepository.CheckUser(
-                    request.Email,
-                    cancellationToken);
-
-            if (user is null)
-            {
-                throw new UnauthorizedException(
-                    "Invalid email or password.");
-            }
-
-            var passwordValid = _passwordHasher.VerifyPassword(
+        var passwordValid =
+            _passwordHasher.VerifyPassword(
                 request.Password,
                 user.password_hash,
                 user.password_salt);
 
-            if (!passwordValid)
-            {
-                throw new UnauthorizedException(
-                    "Invalid email or password.");
-            }
+        if (!passwordValid)
+        {
+            _logger.LogWarning(
+                "User authentication failed. UserId: {UserId}. Reason: Invalid credentials.",
+                user.id);
 
-            var userRole = 
-                await _userRepository.GetRole(
-                    user.id, 
-                    cancellationToken);
+            throw new UnauthorizedException(
+                "Invalid email or password.");
+        }
 
-            if (string.IsNullOrWhiteSpace(userRole))
-            {
-                throw new UnauthorizedException(
-                    "User role is not configured.");
-            }
-
-            var (accessToken, expiresAt) =
-                _jwtAuthenticationService.GenerateToken(
-                    user.id,
-                    user.email,
-                    userRole);
-
-            var refreshTokenResult = 
-                _refreshTokenService.GenerateToken();
-
-            var refreshToken = new RefreshToken
-            {
-                user_id = user.id,
-                token_hash = refreshTokenResult.TokenHash,
-                family_id = refreshTokenResult.FamilyId,
-                created_at = refreshTokenResult.CreatedAt,
-                expires_at = refreshTokenResult.ExpiresAt
-            };
-
-            await _userRepository.CreateRefreshToken(
-                refreshToken,
+        var userRole =
+            await _userRepository.GetRole(
+                user.id,
                 cancellationToken);
 
-            return new LoginResponseDto
-            {
-                AccessToken = accessToken,
-                RefreshToken = refreshTokenResult.Token,
-                TokenType = "Bearer",
-                ExpiresAt = expiresAt
-            };
+        if (string.IsNullOrWhiteSpace(userRole))
+        {
+            _logger.LogWarning(
+                "User authentication failed. UserId: {UserId}. Reason: User role is not configured.",
+                user.id);
+
+            throw new UnauthorizedException(
+                "User role is not configured.");
         }
+
+        var (accessToken, expiresAt) =
+            _jwtAuthenticationService.GenerateToken(
+                user.id,
+                user.email,
+                userRole);
+
+        var refreshTokenResult =
+            _refreshTokenService.GenerateToken();
+
+        var refreshToken = new RefreshToken
+        {
+            user_id = user.id,
+            token_hash = refreshTokenResult.TokenHash,
+            family_id = refreshTokenResult.FamilyId,
+            created_at = refreshTokenResult.CreatedAt,
+            expires_at = refreshTokenResult.ExpiresAt
+        };
+
+        await _userRepository.CreateRefreshToken(
+            refreshToken,
+            cancellationToken);
+
+        _logger.LogInformation(
+            "User authentication succeeded. UserId: {UserId}.",
+            user.id);
+
+        return new LoginResponseDto
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshTokenResult.Token,
+            TokenType = "Bearer",
+            ExpiresAt = expiresAt
+        };
     }
 }

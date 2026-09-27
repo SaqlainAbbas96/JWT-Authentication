@@ -42,6 +42,11 @@ builder.Services.AddDbContext<DBContext>(options =>
     options.UseNpgsql(
         builder.Configuration.GetConnectionString("Postgres")));
 
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<DBContext>(
+        name: "postgresql",
+        tags: ["ready"]);
+
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
@@ -61,9 +66,11 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.MapOpenApi()
+        .AllowAnonymous();
 
-    app.MapScalarApiReference();
+    app.MapScalarApiReference()
+        .AllowAnonymous();
 }
 
 app.UseHttpsRedirection();
@@ -80,6 +87,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapAuthEndpoints();
+app.MapHealthEndpoints();
 
 app.Run();
 
