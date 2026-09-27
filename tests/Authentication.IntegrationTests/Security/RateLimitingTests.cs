@@ -24,20 +24,20 @@ public sealed class RateLimitingTests
 
         using var client = factory.CreateClient();
 
-        var responses = new List<HttpResponseMessage>();
+        var requests = Enumerable
+            .Range(0, 11)
+            .Select(_ =>
+                client.PostAsJsonAsync(
+                    "/api/auth/login",
+                    new
+                    {
+                        email =
+                            $"ratelimit-{Guid.NewGuid()}@example.com",
+                        password = "Password123!"
+                    }));
 
-        for (var i = 0; i < 11; i++)
-        {
-            var response = await client.PostAsJsonAsync(
-                "/api/auth/login",
-                new
-                {
-                    email = $"ratelimit-{Guid.NewGuid()}@example.com",
-                    password = "Password123!"
-                });
-
-            responses.Add(response);
-        }
+        var responses =
+            await Task.WhenAll(requests);
 
         Assert.Contains(
             responses,
@@ -55,25 +55,26 @@ public sealed class RateLimitingTests
 
         using var client = factory.CreateClient();
 
-        HttpResponseMessage? rateLimitedResponse = null;
+        var requests = Enumerable
+            .Range(0, 11)
+            .Select(_ =>
+                client.PostAsJsonAsync(
+                    "/api/auth/login",
+                    new
+                    {
+                        email =
+                            $"retry-after-{Guid.NewGuid()}@example.com",
+                        password = "Password123!"
+                    }));
 
-        for (var i = 0; i < 11; i++)
-        {
-            var response = await client.PostAsJsonAsync(
-                "/api/auth/login",
-                new
-                {
-                    email = $"retry-after-{Guid.NewGuid()}@example.com",
-                    password = "Password123!"
-                });
+        var responses =
+            await Task.WhenAll(requests);
 
-            if (response.StatusCode ==
-                HttpStatusCode.TooManyRequests)
-            {
-                rateLimitedResponse = response;
-                break;
-            }
-        }
+        var rateLimitedResponse =
+            responses.FirstOrDefault(
+                response =>
+                    response.StatusCode ==
+                    HttpStatusCode.TooManyRequests);
 
         Assert.NotNull(rateLimitedResponse);
 
@@ -84,8 +85,11 @@ public sealed class RateLimitingTests
 
         Assert.Contains(
             retryAfterValues,
-            value => int.TryParse(value, out var seconds) &&
-                     seconds > 0);
+            value =>
+                int.TryParse(
+                    value,
+                    out var seconds) &&
+                seconds > 0);
     }
 
     [Fact]
@@ -97,31 +101,26 @@ public sealed class RateLimitingTests
 
         using var client = factory.CreateClient();
 
-        HttpResponseMessage? rateLimitedResponse = null;
+        var requests = Enumerable
+            .Range(0, 11)
+            .Select(_ =>
+                client.PostAsJsonAsync(
+                    "/api/auth/register",
+                    new
+                    {
+                        email =
+                            $"register-ratelimit-{Guid.NewGuid()}@example.com",
+                        password = "Password123!"
+                    }));
 
-        for (var i = 0; i < 11; i++)
-        {
-            var response = await client.PostAsJsonAsync(
-                "/api/auth/register",
-                new
-                {
-                    email = $"register-ratelimit-{Guid.NewGuid()}@example.com",
-                    password = "Password123!"
-                });
+        var responses =
+            await Task.WhenAll(requests);
 
-            if (response.StatusCode ==
-                HttpStatusCode.TooManyRequests)
-            {
-                rateLimitedResponse = response;
-                break;
-            }
-        }
-
-        Assert.NotNull(rateLimitedResponse);
-
-        Assert.Equal(
-            HttpStatusCode.TooManyRequests,
-            rateLimitedResponse!.StatusCode);
+        Assert.Contains(
+            responses,
+            response =>
+                response.StatusCode ==
+                HttpStatusCode.TooManyRequests);
     }
 
     [Fact]
@@ -133,29 +132,24 @@ public sealed class RateLimitingTests
 
         using var client = factory.CreateClient();
 
-        HttpResponseMessage? rateLimitedResponse = null;
+        var requests = Enumerable
+            .Range(0, 11)
+            .Select(_ =>
+                client.PostAsJsonAsync(
+                    "/api/auth/refresh-token",
+                    new
+                    {
+                        refreshToken =
+                            $"invalid-token-{Guid.NewGuid()}"
+                    }));
 
-        for (var i = 0; i < 11; i++)
-        {
-            var response = await client.PostAsJsonAsync(
-                "/api/auth/refresh-token",
-                new
-                {
-                    refreshToken = $"invalid-token-{Guid.NewGuid()}"
-                });
+        var responses =
+            await Task.WhenAll(requests);
 
-            if (response.StatusCode ==
-                HttpStatusCode.TooManyRequests)
-            {
-                rateLimitedResponse = response;
-                break;
-            }
-        }
-
-        Assert.NotNull(rateLimitedResponse);
-
-        Assert.Equal(
-            HttpStatusCode.TooManyRequests,
-            rateLimitedResponse!.StatusCode);
+        Assert.Contains(
+            responses,
+            response =>
+                response.StatusCode ==
+                HttpStatusCode.TooManyRequests);
     }
 }
