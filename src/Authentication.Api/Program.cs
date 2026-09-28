@@ -47,6 +47,10 @@ builder.Services.AddHealthChecks()
         name: "postgresql",
         tags: ["ready"]);
 
+builder.Services.AddApiOpenTelemetry(
+    builder.Environment,
+    builder.Configuration);
+
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
