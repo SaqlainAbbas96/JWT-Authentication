@@ -1,4 +1,7 @@
-﻿using Authentication.IntegrationTests.Infrastructure;
+﻿using Authentication.Application.Interfaces;
+using Authentication.Domain.Entities;
+using Authentication.IntegrationTests.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using System.Net;
 using System.Net.Http.Json;
@@ -499,5 +502,81 @@ public sealed class RegistrationTests
         Assert.Equal(
             "Unauthorized",
             problemDetails.GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task Register_ShouldSucceed_WithRetryExecutionStrategy()
+    {
+        var email = $"retry-{Guid.NewGuid():N}@example.com";
+
+        var response =
+            await _client.PostAsJsonAsync(
+                "/api/auth/register",
+                new
+                {
+                    email,
+                    password = "StrongPassword123!"
+                });
+
+        Assert.Equal(
+            HttpStatusCode.Created,
+            response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Register_WhenDefaultRoleDoesNotExist_ShouldRollbackUserCreation()
+    {
+        var email =
+            $"atomicity-{Guid.NewGuid():N}@example.com";
+
+        await using var scope =
+            _factory.Services.CreateAsyncScope();
+
+        var userRepository =
+            scope.ServiceProvider
+                .GetRequiredService<IUserRepository>();
+
+        var user = new User
+        {
+            email = email,
+            password_hash = [1, 2, 3],
+            password_salt = [4, 5, 6]
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () =>
+                userRepository.RegisterUser(
+                    user,
+                    "role-that-does-not-exist",
+                    CancellationToken.None));
+
+        await using var connection =
+            new NpgsqlConnection(
+                _postgresFixture.ConnectionString);
+
+        await connection.OpenAsync();
+
+        const string sql = """
+        SELECT COUNT(*)
+        FROM public.users
+        WHERE email = @email;
+        """;
+
+        await using var command =
+            new NpgsqlCommand(
+                sql,
+                connection);
+
+        command.Parameters.AddWithValue(
+            "email",
+            email);
+
+        var userCount =
+            Convert.ToInt32(
+                await command.ExecuteScalarAsync());
+
+        Assert.Equal(
+            0,
+            userCount);
     }
 }

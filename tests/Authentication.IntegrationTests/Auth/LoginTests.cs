@@ -133,6 +133,21 @@ public sealed class LoginTests
             HttpStatusCode.Created,
             registerResponse.StatusCode);
 
+
+        var registerBody =
+            await registerResponse.Content.ReadAsStringAsync();
+
+        Console.WriteLine(
+            $"Registration response: {registerResponse.StatusCode}");
+
+        Console.WriteLine(registerBody);
+
+        Assert.Equal(
+            HttpStatusCode.Created,
+            registerResponse.StatusCode);
+
+
+
         var loginResponse =
             await _client.PostAsJsonAsync(
                 "/api/auth/login",
