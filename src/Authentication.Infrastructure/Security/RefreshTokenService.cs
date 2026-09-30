@@ -20,36 +20,37 @@ public sealed class RefreshTokenService : IRefreshTokenService
     private readonly DBContext _db;
     private readonly JwtOptions _jwtOptions;
     private readonly IJwtAuthenticationService _jwtAuthenticationService;
+    private readonly IExecutionStrategyWrapper _executionStrategyWrapper;
     private readonly ILogger<RefreshTokenService> _logger;
 
     public RefreshTokenService(
         DBContext db,
         IOptions<JwtOptions> jwtOptions,
         IJwtAuthenticationService jwtAuthenticationService,
+        IExecutionStrategyWrapper executionStrategyWrapper,
         ILogger<RefreshTokenService> logger)
     {
         _db = db;
         _jwtOptions = jwtOptions.Value;
         _jwtAuthenticationService = jwtAuthenticationService;
+        _executionStrategyWrapper = executionStrategyWrapper;
         _logger = logger;
     }
 
     public RefreshTokenResult GenerateToken()
     {
         var createdAt = DateTime.UtcNow;
-
         var tokenBytes =
-            RandomNumberGenerator.GetBytes(
-                TokenSizeInBytes);
+            RandomNumberGenerator.GetBytes(TokenSizeInBytes);
 
         var token =
-            WebEncoders.Base64UrlEncode(
-                tokenBytes);
+            WebEncoders.Base64UrlEncode(tokenBytes);
 
         var tokenHash =
             ComputeHash(token);
 
-        var familyId = Guid.NewGuid();
+        var familyId =
+            Guid.NewGuid();
 
         var expiresAt =
             createdAt.AddDays(
@@ -76,12 +77,102 @@ public sealed class RefreshTokenService : IRefreshTokenService
         var tokenHash =
             ComputeHash(refreshToken);
 
-        int userId;
-        string userEmail;
-        string userRole;
-        string newRefreshToken;
-        Guid tokenFamilyId;
+        var result =
+            await _executionStrategyWrapper.ExecuteAsync(
+                async operationCancellationToken =>
+                {
+                    return await RotateTokenInTransactionAsync(
+                        tokenHash,
+                        operationCancellationToken);
+                },
+                cancellationToken);
 
+        var (accessToken, expiresAt) =
+            _jwtAuthenticationService.GenerateToken(
+                result.UserId,
+                result.UserEmail,
+                result.UserRole);
+
+        return new RefreshTokenRotationResult(
+            result.UserId,
+            accessToken,
+            result.NewRefreshToken,
+            expiresAt);
+    }
+
+    public async Task RevokeTokenFamilyAsync(
+        string refreshToken,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(refreshToken))
+        {
+            return;
+        }
+
+        var tokenHash =
+            ComputeHash(refreshToken);
+
+        var storedToken =
+            await _db.refresh_tokens
+                .AsNoTracking()
+                .Where(rt =>
+                    rt.token_hash == tokenHash)
+                .Select(rt => new
+                {
+                    rt.user_id,
+                    rt.family_id
+                })
+                .SingleOrDefaultAsync(
+                    cancellationToken);
+
+        if (storedToken is null)
+        {
+            _logger.LogWarning(
+                "Refresh token revocation requested for an invalid token.");
+
+            return;
+        }
+
+        await _executionStrategyWrapper.ExecuteAsync(
+            async operationCancellationToken =>
+            {
+                await using var transaction =
+                    await _db.Database.BeginTransactionAsync(
+                        operationCancellationToken);
+
+                try
+                {
+                    await RevokeTokenFamilyAsync(
+                        storedToken.family_id,
+                        operationCancellationToken);
+
+                    await transaction.CommitAsync(
+                        operationCancellationToken);
+
+                    _logger.LogInformation(
+                        "Refresh token family revoked. UserId: {UserId}, TokenFamilyId: {TokenFamilyId}.",
+                        storedToken.user_id,
+                        storedToken.family_id);
+                }
+                catch
+                {
+                    if (_db.Database.CurrentTransaction is not null)
+                    {
+                        await transaction.RollbackAsync(
+                            CancellationToken.None);
+                    }
+
+                    throw;
+                }
+            },
+            cancellationToken);
+    }
+
+    private async Task<RefreshTokenRotationData>
+        RotateTokenInTransactionAsync(
+            string tokenHash,
+            CancellationToken cancellationToken)
+    {
         await using var transaction =
             await _db.Database.BeginTransactionAsync(
                 cancellationToken);
@@ -108,7 +199,7 @@ public sealed class RefreshTokenService : IRefreshTokenService
                     "Invalid refresh token.");
             }
 
-            tokenFamilyId =
+            var tokenFamilyId =
                 storedToken.family_id;
 
             if (storedToken.revoked_at is not null)
@@ -207,16 +298,12 @@ public sealed class RefreshTokenService : IRefreshTokenService
                 {
                     user_id =
                         storedToken.user_id,
-
                     token_hash =
                         newRefreshTokenResult.TokenHash,
-
                     family_id =
                         newRefreshTokenResult.FamilyId,
-
                     created_at =
                         newRefreshTokenResult.CreatedAt,
-
                     expires_at =
                         newRefreshTokenResult.ExpiresAt
                 };
@@ -236,101 +323,19 @@ public sealed class RefreshTokenService : IRefreshTokenService
             await _db.SaveChangesAsync(
                 cancellationToken);
 
-            userId =
-                storedToken.user_id;
-
-            userEmail =
-                email;
-
-            userRole =
-                userData.role_name;
-
-            newRefreshToken =
-                newRefreshTokenResult.Token;
-
             await transaction.CommitAsync(
                 cancellationToken);
 
             _logger.LogInformation(
                 "Refresh token rotated successfully. UserId: {UserId}, TokenFamilyId: {TokenFamilyId}.",
-                userId,
-                tokenFamilyId);
-        }
-        catch
-        {
-            if (_db.Database.CurrentTransaction is not null)
-            {
-                await transaction.RollbackAsync(
-                    CancellationToken.None);
-            }
-
-            throw;
-        }
-
-        var (accessToken, expiresAt) =
-            _jwtAuthenticationService.GenerateToken(
-                userId,
-                userEmail,
-                userRole);
-
-        return new RefreshTokenRotationResult(
-            userId,
-            accessToken,
-            newRefreshToken,
-            expiresAt);
-    }
-
-    public async Task RevokeTokenFamilyAsync(
-        string refreshToken,
-        CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(refreshToken))
-        {
-            return;
-        }
-
-        var tokenHash =
-            ComputeHash(refreshToken);
-
-        var storedToken =
-            await _db.refresh_tokens
-                .AsNoTracking()
-                .Where(rt =>
-                    rt.token_hash ==
-                    tokenHash)
-                .Select(rt => new
-                {
-                    rt.user_id,
-                    rt.family_id
-                })
-                .SingleOrDefaultAsync(
-                    cancellationToken);
-
-        if (storedToken is null)
-        {
-            _logger.LogWarning(
-                "Refresh token revocation requested for an invalid token.");
-
-            return;
-        }
-
-        await using var transaction =
-            await _db.Database.BeginTransactionAsync(
-                cancellationToken);
-
-        try
-        {
-            await RevokeTokenFamilyAsync(
-                storedToken.family_id,
-                cancellationToken);
-
-            await transaction.CommitAsync(
-                cancellationToken);
-
-            _logger.LogInformation(
-                "Refresh token family revoked. UserId: {UserId}, TokenFamilyId: {TokenFamilyId}.",
                 storedToken.user_id,
-                storedToken.family_id);
+                tokenFamilyId);
+
+            return new RefreshTokenRotationData(
+                storedToken.user_id,
+                email,
+                userData.role_name,
+                newRefreshTokenResult.Token);
         }
         catch
         {
@@ -410,4 +415,10 @@ public sealed class RefreshTokenService : IRefreshTokenService
         return Convert.ToHexString(hash)
             .ToLowerInvariant();
     }
+
+    private sealed record RefreshTokenRotationData(
+        int UserId,
+        string UserEmail,
+        string UserRole,
+        string NewRefreshToken);
 }

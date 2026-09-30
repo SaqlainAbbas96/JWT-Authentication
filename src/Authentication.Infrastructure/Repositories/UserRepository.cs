@@ -10,69 +10,76 @@ namespace Authentication.Infrastructure.Repositories
     public class UserRepository : IUserRepository
     {
         private readonly DBContext _db;
-        public UserRepository(DBContext db)
+        private readonly IExecutionStrategyWrapper _executionStrategyWrapper;
+
+        public UserRepository(DBContext db, IExecutionStrategyWrapper executionStrategyWrapper)
         {
             _db = db;
+            _executionStrategyWrapper = executionStrategyWrapper;
         }
 
         public async Task RegisterUser(
-            User user, 
+            User user,
             string defaultRole,
             CancellationToken cancellationToken)
         {
-            await using var transaction =
-                await _db.Database.BeginTransactionAsync(
-                    cancellationToken);
-
-            try
-            {
-                _db.users.Add(user);
-
-                await _db.SaveChangesAsync(
-                    cancellationToken);
-
-                var roleId = await _db.roles
-                    .Where(r => r.role_name == defaultRole)
-                    .Select(r => (int?)r.id)
-                    .FirstOrDefaultAsync(
-                        cancellationToken);
-
-                if (roleId is null)
+            await _executionStrategyWrapper.ExecuteAsync(
+                async operationCancellationToken =>
                 {
-                    throw new InvalidOperationException(
-                        $"Role '{defaultRole}' does not exist.");
-                }
+                    await using var transaction =
+                        await _db.Database.BeginTransactionAsync(
+                            operationCancellationToken);
+                    try
+                    {
+                        _db.users.Add(user);
 
-                var userRole = new UserRoles
-                {
-                    user_id = user.id,
-                    role_id = roleId.Value
-                };
+                        await _db.SaveChangesAsync(
+                            cancellationToken);
 
-                _db.user_roles.Add(userRole);
+                        var roleId = await _db.roles
+                            .Where(r => r.role_name == defaultRole)
+                            .Select(r => (int?)r.id)
+                            .FirstOrDefaultAsync(
+                                cancellationToken);
 
-                await _db.SaveChangesAsync(
-                    cancellationToken);
+                        if (roleId is null)
+                        {
+                            throw new InvalidOperationException(
+                                $"Role '{defaultRole}' does not exist.");
+                        }
 
-                await transaction.CommitAsync(
-                    cancellationToken);
-            }
-            catch (DbUpdateException ex) when (
-                ex.InnerException is PostgresException postgresException &&
-                postgresException.SqlState == PostgresErrorCodes.UniqueViolation)
-            {
-                await transaction.RollbackAsync(
-                    CancellationToken.None);
+                        var userRole = new UserRoles
+                        {
+                            user_id = user.id,
+                            role_id = roleId.Value
+                        };
 
-                throw new ConflictException("Email is already registered.");
-            }
-            catch 
-            {
-                await transaction.RollbackAsync(
-                    CancellationToken.None);
+                        _db.user_roles.Add(userRole);
 
-                throw;
-            }
+                        await _db.SaveChangesAsync(
+                            cancellationToken);
+
+                        await transaction.CommitAsync(
+                            cancellationToken);
+                    }
+                    catch (DbUpdateException ex) when (
+                        ex.InnerException is PostgresException postgresException &&
+                        postgresException.SqlState == PostgresErrorCodes.UniqueViolation)
+                    {
+                        await transaction.RollbackAsync(
+                            CancellationToken.None);
+
+                        throw new ConflictException("Email is already registered.");
+                    }
+                    catch
+                    {
+                        await transaction.RollbackAsync(
+                            CancellationToken.None);
+
+                        throw;
+                    }
+                },
+                cancellationToken);
         }
 
         public async Task<string?> GetRole(

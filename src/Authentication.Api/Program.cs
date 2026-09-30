@@ -40,7 +40,14 @@ builder.Services.AddOpenApi();
 
 builder.Services.AddDbContext<DBContext>(options =>
     options.UseNpgsql(
-        builder.Configuration.GetConnectionString("Postgres")));
+        builder.Configuration.GetConnectionString("Postgres"),
+        npgsqlOptions =>
+        {
+            npgsqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 3,
+                maxRetryDelay: TimeSpan.FromSeconds(5),
+                errorCodesToAdd: null);
+        }));
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<DBContext>(
@@ -62,6 +69,10 @@ builder.Services.AddScoped<IJwtAuthenticationService, JwtAuthenticationService>(
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
+
+builder.Services.AddScoped<
+    IExecutionStrategyWrapper,
+    ExecutionStrategyWrapper>();
 
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
