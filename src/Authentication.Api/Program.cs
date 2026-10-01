@@ -1,3 +1,4 @@
+using Authentication.Api.Configuration;
 using Authentication.Api.Endpoints;
 using Authentication.Api.ExceptionHandling;
 using Authentication.Api.Extensions;
@@ -16,13 +17,48 @@ using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure structured console logging
+builder.Logging.ClearProviders();
+
+builder.Logging.AddJsonConsole(options =>
+{
+    options.IncludeScopes = true;
+    options.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffZ";
+    options.UseUtcTimestamp = true;
+});
+
 // Configure JWT options
 builder.Services
     .AddOptions<JwtOptions>()
-    .Bind(builder.Configuration.GetRequiredSection("Jwt"))
+    .Bind(builder.Configuration.GetRequiredSection(
+        JwtOptions.SectionName))
     .ValidateOnStart();
 
-builder.Services.AddSingleton<IValidateOptions<JwtOptions>, JwtOptionsValidator>();
+builder.Services.AddSingleton<
+    IValidateOptions<JwtOptions>,
+    JwtOptionsValidator>();
+
+// Configure connection strings
+builder.Services
+    .AddOptions<ConnectionStringOptions>()
+    .Bind(builder.Configuration.GetSection(
+        ConnectionStringOptions.SectionName))
+    .ValidateOnStart();
+
+builder.Services.AddSingleton<
+    IValidateOptions<ConnectionStringOptions>,
+    ConnectionStringOptionsValidator>();
+
+// Configure OpenTelemetry options
+builder.Services
+    .AddOptions<OpenTelemetryOptions>()
+    .Bind(builder.Configuration.GetSection(
+        OpenTelemetryOptions.SectionName))
+    .ValidateOnStart();
+
+builder.Services.AddSingleton<
+    IValidateOptions<OpenTelemetryOptions>,
+    OpenTelemetryOptionsValidator>();
 
 // Configure JWT authentication
 AuthenticationExtensions.AddJwtAuthentication(
@@ -74,7 +110,9 @@ builder.Services.AddScoped<
     IExecutionStrategyWrapper,
     ExecutionStrategyWrapper>();
 
-builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+builder.Services.AddSingleton<
+    IHttpContextAccessor,
+    HttpContextAccessor>();
 
 var app = builder.Build();
 
@@ -89,6 +127,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCorrelationId();
 
 app.UseExceptionHandler();
 
