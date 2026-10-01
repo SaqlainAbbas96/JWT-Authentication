@@ -21,11 +21,6 @@ public static class OpenTelemetryExtensions
             ?? new OpenTelemetryOptions();
 
         services
-            .AddOptions<OpenTelemetryOptions>()
-            .Bind(configuration.GetSection(
-                OpenTelemetryOptions.SectionName));
-
-        services
             .AddOpenTelemetry()
             .ConfigureResource(resource =>
                 resource
