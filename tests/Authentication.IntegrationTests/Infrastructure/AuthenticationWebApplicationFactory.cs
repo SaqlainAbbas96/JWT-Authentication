@@ -38,12 +38,15 @@ namespace Authentication.IntegrationTests.Infrastructure
                 configuration.AddInMemoryCollection(
                     new Dictionary<string, string?>
                     {
+                        ["ConnectionStrings:Postgres"] = _connectionString,
                         ["Jwt:Key"] = TestJwtKey,
                         ["Jwt:Issuer"] = "Authentication.Api",
                         ["Jwt:Audience"] = "Authentication.Client",
                         ["Jwt:AccessTokenExpirationMinutes"] = "15",
-                        ["Jwt:RefreshTokenExpirationDays"] = _refreshTokenExpirationDays.ToString(),
-                        ["Cors:AllowedOrigins:0"] = "https://test-client.example.com"
+                        ["Jwt:RefreshTokenExpirationDays"] =
+                            _refreshTokenExpirationDays.ToString(),
+                        ["Cors:AllowedOrigins:0"] =
+                            "https://test-client.example.com"
                     });
             });
 
