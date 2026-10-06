@@ -46,7 +46,7 @@ The API follows **Clean Architecture**, with dependencies pointing inward toward
                │
                ▼
 ┌─────────────────────────────┐
-│  Authentication.Application│
+│  Authentication.Application │
 │                             │
 │ Services · DTOs             │
 │ Validators · Interfaces     │
@@ -59,7 +59,7 @@ The API follows **Clean Architecture**, with dependencies pointing inward toward
 │ Entities      │  │ EF Core / PostgreSQL │
 │ Domain models │  │ Repositories         │
 └───────────────┘  │ JWT / Security       │
-                   │ Persistence           │
+                   │ Persistence          │
                    └──────────────────────┘
 ```
 
